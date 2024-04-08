@@ -1,0 +1,32 @@
+seed: 1234
+dataset: "planning-datasets/mpd/mazes_032_moore_c8.npz"
+logdir: "model"
+map_type: "bmap"
+Tmax: 0.25
+logpath: "log" 
+
+encoder:
+  input: "m+"
+  arch: "CNN"
+  depth: 3
+
+params:
+  training: True
+  batch_size: 100
+  num_epochs: 200
+  lr: 0.0005
+  gpu_id: 0
+  w_decay: 0.001
+  factor: 0.1
+  min_lr: 0.000001
+  patience: 4
+  map_num: 8
+
+
+hydra:
+  job:
+    chdir: False
+
+modelConfig:
+  model-save: model
+

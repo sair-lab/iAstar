@@ -1,0 +1,27 @@
+2024-04-07 22:36:55,894 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Current SDK version is 0.15.12
+2024-04-07 22:36:55,894 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Configure stats pid to 1200226
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Loading settings from /home/cxy/.config/wandb/settings
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Loading settings from /home/cxy/SAIRLAB/iAstar/wandb/settings
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'train.py', 'program_abspath': '/home/cxy/SAIRLAB/iAstar/train.py', 'program': '/home/cxy/SAIRLAB/iAstar/train.py'}
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:_log_setup():528] Logging user logs to /home/cxy/SAIRLAB/iAstar/wandb/run-20240407_223655-79k9tpjk/logs/debug.log
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:_log_setup():529] Logging internal logs to /home/cxy/SAIRLAB/iAstar/wandb/run-20240407_223655-79k9tpjk/logs/debug-internal.log
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:init():568] calling init triggers
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:init():575] wandb.init called with sweep_config: {}
+config: {'learning_rate': 0.0005, 'architecture': 'PlannerNet', 'epochs': 200}
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:init():618] starting backend
+2024-04-07 22:36:55,895 INFO    MainThread:1200226 [wandb_init.py:init():622] setting up manager
+2024-04-07 22:36:55,897 INFO    MainThread:1200226 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-04-07 22:36:55,899 INFO    MainThread:1200226 [wandb_init.py:init():628] backend started and connected
+2024-04-07 22:36:55,901 INFO    MainThread:1200226 [wandb_init.py:init():720] updated telemetry
+2024-04-07 22:36:55,906 INFO    MainThread:1200226 [wandb_init.py:init():753] communicating run to backend with 90.0 second timeout
+2024-04-07 22:36:56,585 INFO    MainThread:1200226 [wandb_run.py:_on_init():2220] communicating current version
+2024-04-07 22:37:01,589 INFO    MainThread:1200226 [wandb_run.py:_on_init():2229] got version response 
+2024-04-07 22:37:01,589 INFO    MainThread:1200226 [wandb_init.py:init():804] starting run threads in backend
+2024-04-07 22:37:12,817 INFO    MainThread:1200226 [wandb_run.py:_console_start():2199] atexit reg
+2024-04-07 22:37:12,817 INFO    MainThread:1200226 [wandb_run.py:_redirect():2054] redirect: wrap_raw
+2024-04-07 22:37:12,817 INFO    MainThread:1200226 [wandb_run.py:_redirect():2119] Wrapping output streams.
+2024-04-07 22:37:12,817 INFO    MainThread:1200226 [wandb_run.py:_redirect():2144] Redirects installed.
+2024-04-07 22:37:12,818 INFO    MainThread:1200226 [wandb_init.py:init():845] run started, returning control to user process
+2024-04-07 22:39:25,962 WARNING MsgRouterThr:1200226 [router.py:message_loop():77] message_loop has been closed

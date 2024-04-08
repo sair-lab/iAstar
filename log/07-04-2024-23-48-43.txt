@@ -1,0 +1,1 @@
+Epoch: 0 | Training Loss: 6.247691 | Val Loss: 0.058918 | Duration: 0.387089
