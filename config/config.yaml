@@ -3,7 +3,7 @@ dataset: "planning-datasets/mpd/"
 logdir: "model/h"
 map_type: "bmap"
 Tmax: 0.25
-logpath: "log" 
+logpath: "logs" 
 
 encoder:
   input: "m+"

@@ -1,0 +1,7 @@
+# ignore folders
+__pycache__/
+logs
+wandb
+gif
+model
+outputs
