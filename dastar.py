@@ -612,20 +612,17 @@ class d_astar(nn.Module):
         goal_loc_expand = goal_loc.unsqueeze(-1).expand(num_samples, 2, -1)
         # Euclid
         if dis_type == 'Euc':
-            print('Euc distance')
+            # print('Euc distance')
             euc = torch.sqrt(((loc_expand - goal_loc_expand) ** 2).sum(1))
             h = euc.reshape_as(goal_maps)
         # chebyshev distance
         elif dis_type == 'Che':
-            print('Che distance')
+            # print('Che distance')
             dxdy = torch.abs(loc_expand - goal_loc_expand)
             che_dis = dxdy.sum(dim=1) - dxdy.min(dim=1)[0]
-            # euc = torch.sqrt(((loc_expand - goal_loc_expand) ** 2).sum(1))
-
-            # h = (che_dis + 0.01*euc).reshape_as(goal_maps)
             h = (che_dis).reshape_as(goal_maps)
         elif dis_type == 'Diag':
-            print('Diag distance')
+            # print('Diag distance')
             dxdy = torch.abs(loc_expand - goal_loc_expand)
             h = dxdy.min(dim=1)[0] * (2**0.5) + torch.abs(dxdy[:, 0] - dxdy[:, 1])
             h = h.reshape_as(goal_maps)
@@ -676,6 +673,8 @@ class d_astar(nn.Module):
         h = self.get_heuristic(goal_maps,'Euc')*self.w 
         # 72(Diag)
         # h = self.get_heuristic(goal_maps,'Diag')
+        # h = cost_maps
+        # g = torch.zeros_like(start_maps)
         g = cost_maps
         parents = (
             torch.ones_like(start_maps).reshape(self.num_samples, -1)
@@ -709,7 +708,7 @@ class d_astar(nn.Module):
             # 1) neighbor is not in the close list (1 - histories) nor in the open list (1 - open_maps)
             # 2) neighbor is in the open list but g < g2
             g2 = (g*node_selection).sum((1, 2), keepdim=True)
-            g2 = g2 + self.expand(cost_maps*node_selection, nc)
+            g2 = g2 + self.expand(node_selection*cost_maps, nc)
             idx = (1 - open_maps) * (1 - histories) + open_maps * (g > g2)
             idx = idx * neighbor_nodes
             idx = idx.detach()
@@ -727,8 +726,16 @@ class d_astar(nn.Module):
             parents = new_parents * idx + parents * (1 - idx)
             if torch.all(is_unsolved.flatten()==0):
                 break
-
-        path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
+            path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
+            if self.store_intermediate_results:
+                intermediate_results.append(
+                    {
+                        "histories": histories.unsqueeze(1).detach(),
+                        "paths": path_maps.unsqueeze(1).detach(),
+                    }
+                )
+        
+    
 
         return AstarOutput(
             histories.unsqueeze(1),

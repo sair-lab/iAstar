@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class EncoderBase(nn.Module):
     def __init__(self, input_dim: int, encoder_depth: int = 4, const: float = None):
         """

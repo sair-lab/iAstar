@@ -1,6 +1,6 @@
 seed: 1234
-dataset: "planning-datasets/mpd/mazes_032_moore_c8.npz"
-logdir: "model"
+dataset: "planning-datasets/mpd/"
+logdir: "model/h"
 map_type: "bmap"
 Tmax: 0.25
 logpath: "log" 

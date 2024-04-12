@@ -5,9 +5,10 @@ import wandb
 import torch
 import yaml
 import random
-
+import glob
 import argparse
 from iastar import iastar
+from os.path import isdir
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -20,6 +21,7 @@ class EncoderTrainer():
     def __init__(self) -> None:
         # self.root_folder = os.getenv('EXPERIMENT_DIRECTORY', os.getcwd())
         self.root_folder = "/home/cxy/SAIRLAB/"
+        self.env_list = []
         self.load_config()
         self.parse_args()
         self.init_wandb()
@@ -84,31 +86,32 @@ class EncoderTrainer():
             self.config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
     def prepare_data(self):
-        self.dataloader = create_dataloader(self.args.datapath, "train", self.args.map_num)
-        self.val_dataloader = create_dataloader(self.args.datapath, "valid", self.args.map_num)
+        self.env_list = glob.glob(self.args.datapath+"*.npz")        
 
     
     def train_epoch(self, epoch):
         loss_sum = 0.0
-        # for env in self.env_list:
-        for i in range(100):
-            maps, start, goal, _ = next(iter(self.dataloader))
-            self.optimizer.zero_grad()
-            planner_outputs = self.planner(maps.to(self.device), 
-                        start.to(self.device), 
-                        goal.to(self.device))
-            loss = self.CostofTraj(maps, planner_outputs)
-            loss.backward()
-            self.optimizer.step()
-            train_loss = loss.item()
-            loss_sum += train_loss
-            wandb.log({"Running Loss": train_loss})
-            
+        for env in self.env_list:
+            self.dataloader = create_dataloader(env, "train", self.args.map_num)
+            self.val_dataloader = create_dataloader(env, "valid", self.args.map_num)
+            for i in range(100):
+                maps, start, goal, _ = next(iter(self.dataloader))
+                self.optimizer.zero_grad()
+                planner_outputs = self.planner(maps.to(self.device), 
+                            start.to(self.device), 
+                            goal.to(self.device))
+                loss = self.CostofTraj(maps, planner_outputs)
+                loss.backward()
+                self.optimizer.step()
+                train_loss = loss.item()
+                loss_sum += train_loss
+                wandb.log({"Running Loss": train_loss})
+
+        loss_sum = loss_sum/len(self.env_list)   
         return loss_sum
 
     def CostofTraj(self, maps, outputs,alpha=0.1, beta=0.9):
         paths = outputs.paths
-        print(outputs.histories)
         area_loss = nn.L1Loss()(outputs.histories,
                                    torch.zeros(outputs.histories.shape,
                                                device=outputs.histories.device))
@@ -123,7 +126,6 @@ class EncoderTrainer():
                       torch.zeros(maps.shape,
                                   device=self.device))
 
-        print(alpha*area_loss + beta*length_loss)
         return alpha*area_loss + beta*length_loss
     
     def prepare_planner(self):
@@ -147,6 +149,12 @@ class EncoderTrainer():
         is_training = True,
         output_path_list= False,
         w=1.0).to(self.device)
+        # if self.args.resume == True:
+        #     self.net, self.best_loss = torch.load(self.args.model_save, map_location=torch.device("cpu"))
+        #     print("Resume training from best loss: {}".format(self.best_loss))
+        # else:
+        self.best_loss = float('Inf')
+
         self.optimizer = optim.AdamW(self.planner.parameters(), lr=self.args.lr, weight_decay=self.args.w_decay)
         self.scheduler = EarlyStopScheduler(self.optimizer, factor=self.args.factor, verbose=True, min_lr=self.args.min_lr, patience=self.args.patience)
 
@@ -155,13 +163,11 @@ class EncoderTrainer():
 
         # Convert to string in the format you prefer
         date_time_str = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-        
         self.args.log_save += ('/'+date_time_str + ".txt")
         open(self.args.log_save, 'w').close()
 
         for epoch in range(self.args.epochs):
             start_time = time.time()
-            print("Epoch is ", epoch)
             train_loss = self.train_epoch(epoch)
             val_loss = self.evaluate()
             duration = (time.time() - start_time) / 60 # minutes
@@ -172,7 +178,12 @@ class EncoderTrainer():
             
             if val_loss < self.best_loss:
                 self.log_message("Save model of epoch %d" % epoch)
-                torch.save((self.net, val_loss), self.args.model_save)
+                save_model_dir = '{}/{}'.format(self.args.model_save, epoch)
+                if not isdir(save_model_dir):
+                    os.makedirs(save_model_dir)
+                save_model_name = os.path.join(save_model_dir,'iaster.pkl')
+                print("model saved at :", save_model_name)
+                torch.save((self.planner, val_loss), save_model_name)
                 self.best_loss = val_loss
                 self.log_message("Current val loss: %.4f" % self.best_loss)
                 self.log_message("Epoch: %d model saved | Current Min Val Loss: %f" % (epoch, val_loss))
@@ -181,14 +192,11 @@ class EncoderTrainer():
             if self.scheduler.step(val_loss):
                 self.log_message('Early Stopping!')
                 break
-            
         # Close wandb run at the end of training
         self.wandb_run.finish()
 
     def evaluate(self):
         maps, start, goal, _ = next(iter(self.val_dataloader))
-        print(maps.shape)
-        print(self.device)
         outputs_iastar = self.planner(maps.to(self.device), 
                         start.to(self.device), 
                         goal.to(self.device))
@@ -209,7 +217,6 @@ def main():
     if trainer.args.training == True:
         trainer.train()
     trainer.evaluate()
-
 
 if __name__ == "__main__":
     main()
