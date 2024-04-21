@@ -734,7 +734,9 @@ class d_astar(nn.Module):
                         "paths": path_maps.unsqueeze(1).detach(),
                     }
                 )
-        
+            if t == Tmax - 1:
+                print("Fail to find paths!!!")
+                return -1
     
 
         return AstarOutput(
