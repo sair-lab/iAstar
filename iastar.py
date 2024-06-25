@@ -28,7 +28,7 @@ class iastar(nn.Module):
         self.learn_obstacles = learn_obstacles
         self.const = const
         self.init_encoder()
-        self.dastar = d_astar(g_ratio=g_ratio,
+        self.dastar = dastar(g_ratio=g_ratio,
                               device=device,
                               Tmax=Tmax,
                               w = w,

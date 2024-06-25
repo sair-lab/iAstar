@@ -16,7 +16,7 @@ def load_from_ptl_checkpoint(checkpoint_path: str) -> dict:
         dict: model state dict
     """
     print(checkpoint_path)
-    ckpt_file = sorted(glob(f"{checkpoint_path}/**/*.ckpt", recursive=True))[-1]
+    ckpt_file = sorted(glob.glob(f"{checkpoint_path}/**/*.ckpt", recursive=True))[-1]
     print(f"load {ckpt_file}")
     state_dict = torch.load(ckpt_file)["state_dict"]
     state_dict_extracted = dict()

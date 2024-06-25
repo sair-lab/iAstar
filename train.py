@@ -41,17 +41,10 @@ class EncoderTrainer():
             config={
                 "learning_rate": self.args.lr,
                 "architecture": "PlannerNet",  # Replace with your actual architecture
-                # "dataset": self.args.data_root,  # Assuming this holds the dataset name
                 "epochs": self.args.epochs,
-                # "goal_step": self.args.goal_step,
-                # "max_episode": self.args.max_episode,
-                # "fear_ahead_dist": self.args.fear_ahead_dist,
             }
         )
 
-    
-
-        
     def parse_args(self):  
         parser = argparse.ArgumentParser(description="Training config for iA*")
         # dataConfig
@@ -116,10 +109,6 @@ class EncoderTrainer():
                                    torch.zeros(outputs.histories.shape,
                                                device=outputs.histories.device))
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
-        # map_f = F.conv2d(pad((maps<0.5)*1.0), self.o_kernel)
-        # oloss = nn.L1Loss()(map_f*paths,
-        #                     torch.zeros(map_designs.shape,
-        #                                 device=map_designs.device))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
         length_loss = nn.L1Loss()(path_length*paths,
@@ -160,7 +149,6 @@ class EncoderTrainer():
 
 
     def train(self):
-
         # Convert to string in the format you prefer
         date_time_str = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
         self.args.log_save += ('/'+date_time_str + ".txt")
@@ -171,11 +159,9 @@ class EncoderTrainer():
             train_loss = self.train_epoch(epoch)
             val_loss = self.evaluate()
             duration = (time.time() - start_time) / 60 # minutes
-
             self.log_message("Epoch: %d | Training Loss: %f | Val Loss: %f | Duration: %f" % (epoch, train_loss, val_loss, duration))
             # Log metrics to wandb
             wandb.log({"Avg Training Loss": train_loss, "Validation Loss": val_loss, "Duration (min)": duration})
-            
             if val_loss < self.best_loss:
                 self.log_message("Save model of epoch %d" % epoch)
                 save_model_dir = '{}/{}'.format(self.args.model_save, epoch)

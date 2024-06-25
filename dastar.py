@@ -539,7 +539,7 @@ class AstarOutput():
         self.intermediate_result = intermediate_result
         self.path_list = path_list
 
-class d_astar(nn.Module):
+class dastar(nn.Module):
     def __init__(self,
                  maps:torch.tensor = None,
                  device:str = "cuda",
