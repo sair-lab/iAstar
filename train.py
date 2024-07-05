@@ -21,7 +21,6 @@ class EncoderTrainer():
     def __init__(self) -> None:
         # self.root_folder = os.getenv('EXPERIMENT_DIRECTORY', os.getcwd())
         self.root_folder = "/home/cxy/SAIRLAB/"
-        self.env_list = []
         self.load_config()
         self.parse_args()
         self.init_wandb()
@@ -32,12 +31,16 @@ class EncoderTrainer():
     def init_wandb(self):
         # Convert to string in the format you prefer
         date_time_str = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+        n = self.args.encoder_arch + "w" + str(self.args.w)
+        if self.args.useIL:
+            n += 'IL'
+        print("Using ", n)
         # Initialize wandb
         self.wandb_run = wandb.init(
             # set the wandb project where this run will be logged
             project="imperative-path-planning",
             # Set the run name to current date and time
-            name=date_time_str + "adamW",
+            name=date_time_str + n + "adamW",
             config={
                 "learning_rate": self.args.lr,
                 "architecture": "PlannerNet",  # Replace with your actual architecture
@@ -49,12 +52,13 @@ class EncoderTrainer():
         parser = argparse.ArgumentParser(description="Training config for iA*")
         # dataConfig
         parser.add_argument("--datapath", type=str, default=os.path.join(self.root_folder,'iAstar', self.config['dataset']), help="dataset root folder")
-        # parser.add_argument('--env-id', type=str, default=self.config['dataConfig'].get('env-id'), help='environment id list')
+        parser.add_argument("--val-datapath", type=str, default=os.path.join(self.root_folder,'iAstar', self.config['val_dataset']), help="dataset root folder")
 
         # modelConfig
         parser.add_argument("--model-save", type=str, default=os.path.join(self.root_folder, 'iAstar', self.config['modelConfig'].get('model-save')), help="model save point")
         parser.add_argument('--resume', type=str, default=self.config['modelConfig'].get('resume'))
-
+        parser.add_argument("--input-dim", type=int, default=self.config["encoder"].get('input'))
+        parser.add_argument("--encoder-arch", type=str, default=self.config['encoder'].get('arch'), help="The archtecture of the embedded network, CNN, UNet, FCNs")
         # trainingConfig
         parser.add_argument('--training', type=str, default=self.config['params'].get('training'))
         parser.add_argument("--lr", type=float, default=self.config['params'].get('lr'), help="learning rate")
@@ -66,12 +70,11 @@ class EncoderTrainer():
         parser.add_argument("--w-decay", type=float, default=self.config['params'].get('w_decay'), help="weight decay of the optimizer")
         parser.add_argument("--factor", type=float, default=self.config['params'].get('factor'), help="ReduceLROnPlateau factor")
         parser.add_argument("--map-num", type=int, default=self.config['params'].get('map_num'), help="num of maps")
+        parser.add_argument("--useIL", type=bool, default=False)
+        parser.add_argument("--w", type=float, default=2.0)
         # logConfig
         parser.add_argument("--log-save", type=str, default=os.path.join(self.root_folder, 'iAstar', self.config['logpath']), help="train log file")
-        # parser.add_argument('--test-env-id', type=int, default=self.config['logConfig'].get('test-env-id'), help='the test env id in the id list')
-
         self.args = parser.parse_args()
-
 
     def load_config(self):
         filepath = os.path.join(os.path.dirname(self.root_folder),'iAstar','config', 'config.yaml')
@@ -79,43 +82,64 @@ class EncoderTrainer():
             self.config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
     def prepare_data(self):
-        self.env_list = glob.glob(self.args.datapath+"*.npz")        
-
-    
+        self.train_env_list = glob.glob(self.args.datapath+"*.npz") 
+        self.val_env_list = glob.glob(self.args.val_datapath+"*.npz")
+        print("Using for training", self.train_env_list)       
+        print("Using for val", self.val_env_list) 
     def train_epoch(self, epoch):
         loss_sum = 0.0
-        for env in self.env_list:
+        for env in self.train_env_list:
             self.dataloader = create_dataloader(env, "train", self.args.map_num)
-            self.val_dataloader = create_dataloader(env, "valid", self.args.map_num)
-            for i in range(100):
-                maps, start, goal, _ = next(iter(self.dataloader))
+            for i in range(5):
+                maps, start, goal, opt_trajs = next(iter(self.dataloader))
                 self.optimizer.zero_grad()
                 planner_outputs = self.planner(maps.to(self.device), 
-                            start.to(self.device), 
-                            goal.to(self.device))
-                loss = self.CostofTraj(maps, planner_outputs)
+                                               start.to(self.device), 
+                                               goal.to(self.device))
+                a_loss, l_loss = self.getLoss(maps, planner_outputs)
+                if self.args.useIL:
+                    loss = self.CostofTraj(maps, planner_outputs)/self.args.map_num
+                else:
+                    loss = nn.L1Loss()(planner_outputs.histories.to(self.device), 
+                                       opt_trajs.to(self.device))
                 loss.backward()
                 self.optimizer.step()
                 train_loss = loss.item()
                 loss_sum += train_loss
-                wandb.log({"Running Loss": train_loss})
-
-        loss_sum = loss_sum/len(self.env_list)   
+                wandb.log({"Running Loss": train_loss, 
+                           "Search Area":a_loss/self.args.map_num, 
+                           "Path Length":l_loss/self.args.map_num,
+                           "Search Area + Path Length": (a_loss+l_loss)/self.args.map_num})
+            self.evaluate()
+        loss_sum = loss_sum/len(self.train_env_list)/5  
         return loss_sum
 
-    def CostofTraj(self, maps, outputs,alpha=0.1, beta=0.9):
+    def CostofTraj(self, maps, outputs,alpha=0.75, beta=0.25):
         paths = outputs.paths
-        area_loss = nn.L1Loss()(outputs.histories,
-                                   torch.zeros(outputs.histories.shape,
-                                               device=outputs.histories.device))
+        area_loss = torch.sum(outputs.histories - outputs.paths)
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = nn.L1Loss()(path_length*paths,
-                      torch.zeros(maps.shape,
-                                  device=self.device))
-
-        return alpha*area_loss + beta*length_loss
+        length_loss = torch.sum(path_length*paths)
+        return torch.sqrt(area_loss) + length_loss
+    
+    def getLoss(self, maps, outputs):
+        paths = outputs.paths
+        # area_loss = F.l1_loss(outputs.histories,
+        #                            torch.zeros(outputs.histories.shape,
+        #                                        device=outputs.histories.device))
+        # pad = nn.ReplicationPad2d(padding=(1,1,1,1))
+        # pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
+        # path_length = F.conv2d(pad(paths).float(), self.path_kernel)
+        # length_loss = F.l1_loss(path_length*paths,
+        #               torch.zeros(maps.shape,
+        #                           device=self.device))
+        area_loss = torch.sum(outputs.histories - outputs.paths)
+        pad = nn.ReplicationPad2d(padding=(1,1,1,1))
+        pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
+        path_length = F.conv2d(pad(paths).float(), self.path_kernel)
+        length_loss = torch.sum(path_length*paths)/2
+        return torch.sqrt(area_loss), length_loss
     
     def prepare_planner(self):
         if torch.cuda.is_available():
@@ -127,33 +151,36 @@ class EncoderTrainer():
                     [1.414, 1.,1.414]]],
                 device = self.device,
                 requires_grad=True).expand(1,1, 3, 3)
-
         self.planner = iastar(
-        encoder_input=self.config["encoder"]["input"],
-        encoder_arch="CNN",
+        encoder_input=self.args.input_dim,
+        encoder_arch=self.args.encoder_arch,
         device=self.device,
         encoder_depth=self.config["encoder"]["depth"],
         learn_obstacles=False,
         Tmax=self.config["Tmax"],
         is_training = True,
         output_path_list= False,
-        w=1.0).to(self.device)
+        w=self.args.w).to(self.device)
         # if self.args.resume == True:
         #     self.net, self.best_loss = torch.load(self.args.model_save, map_location=torch.device("cpu"))
         #     print("Resume training from best loss: {}".format(self.best_loss))
         # else:
         self.best_loss = float('Inf')
 
-        self.optimizer = optim.AdamW(self.planner.parameters(), lr=self.args.lr, weight_decay=self.args.w_decay)
-        self.scheduler = EarlyStopScheduler(self.optimizer, factor=self.args.factor, verbose=True, min_lr=self.args.min_lr, patience=self.args.patience)
-
+        self.optimizer = optim.AdamW(self.planner.parameters(), 
+                                     lr=self.args.lr, 
+                                     weight_decay=self.args.w_decay)
+        self.scheduler = EarlyStopScheduler(self.optimizer, 
+                                            factor=self.args.factor, 
+                                            verbose=True, 
+                                            min_lr=self.args.min_lr, 
+                                            patience=self.args.patience)
 
     def train(self):
         # Convert to string in the format you prefer
         date_time_str = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
         self.args.log_save += ('/'+date_time_str + ".txt")
         open(self.args.log_save, 'w').close()
-
         for epoch in range(self.args.epochs):
             start_time = time.time()
             train_loss = self.train_epoch(epoch)
@@ -164,16 +191,15 @@ class EncoderTrainer():
             wandb.log({"Avg Training Loss": train_loss, "Validation Loss": val_loss, "Duration (min)": duration})
             if val_loss < self.best_loss:
                 self.log_message("Save model of epoch %d" % epoch)
-                save_model_dir = '{}/{}'.format(self.args.model_save, epoch)
+                save_model_dir = '{}/{}/{}'.format(self.args.model_save, date_time_str, epoch)
                 if not isdir(save_model_dir):
                     os.makedirs(save_model_dir)
-                save_model_name = os.path.join(save_model_dir,'iaster.pkl')
+                save_model_name = os.path.join(save_model_dir, 'iaster1'+self.args.encoder_arch + '.pkl')
                 print("model saved at :", save_model_name)
                 torch.save((self.planner, val_loss), save_model_name)
                 self.best_loss = val_loss
                 self.log_message("Current val loss: %.4f" % self.best_loss)
                 self.log_message("Epoch: %d model saved | Current Min Val Loss: %f" % (epoch, val_loss))
-
             self.log_message("------------------------------------------------------------------------")
             if self.scheduler.step(val_loss):
                 self.log_message('Early Stopping!')
@@ -182,11 +208,30 @@ class EncoderTrainer():
         self.wandb_run.finish()
 
     def evaluate(self):
-        maps, start, goal, _ = next(iter(self.val_dataloader))
-        outputs_iastar = self.planner(maps.to(self.device), 
-                        start.to(self.device), 
-                        goal.to(self.device))
-        return self.CostofTraj(maps, outputs_iastar)
+        area_l = 0
+        length_l = 0
+        t_loss = 0
+        with torch.no_grad():
+            for env in self.val_env_list:
+                self.val_dataloader = create_dataloader(env, "train", 8)
+                maps, start, goal, opt_trajs = next(iter(self.val_dataloader))
+                planner_outputs = self.planner(maps.to(self.device), 
+                                            start.to(self.device),
+                                            goal.to(self.device))
+                if self.args.useIL:
+                    loss = self.CostofTraj(maps, planner_outputs)
+                else:
+                    loss = F.l1_loss(planner_outputs.histories.to(self.device), 
+                                    opt_trajs.to(self.device))
+                a_loss, l_loss = self.getLoss(maps, planner_outputs)
+                t_loss += loss.item()
+                area_l += a_loss.item()
+                length_l += l_loss.item()
+            wandb.log({"Val Loss": t_loss/len(self.val_env_list), 
+                    "Val Search Area": area_l/len(self.val_env_list), 
+                    "Val Path Length": length_l/len(self.val_env_list),
+                    "Val Search Area + Path Length": (area_l+length_l)/len(self.val_env_list)})
+        return t_loss/len(self.val_env_list)
 
     def cal_loss(self):
         loss = 0.0

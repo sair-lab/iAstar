@@ -6,13 +6,13 @@ import pypose as pp
 
 from dastar import *
 import encoder
-
+from encoder import VGGNet
 class iastar(nn.Module):
     def __init__(self,
                  g_ratio: float = 0.5,
                  Tmax: float = 1,
                  device:str = "cpu",
-                 encoder_input:str = 'm+',
+                 encoder_input = 2,
                  encoder_arch:str = 'CNN',
                  encoder_depth: int = 4,
                  learn_obstacles:bool = False,
@@ -37,10 +37,17 @@ class iastar(nn.Module):
                               is_training=is_training)
 
     def init_encoder(self):
+        print("Using %s as encoder", self.encoder_arch)
         e_arch = getattr(encoder, self.encoder_arch)
-        self.encoder = e_arch(len(self.encoder_input),
-                              self.encoder_depth,
-                              self.const)
+        if self.encoder_arch == "CNN":
+            self.encoder = e_arch(self.encoder_input,
+                                self.encoder_depth,
+                                self.const)
+        elif "FCN" in self.encoder_arch:
+            vgg_model = VGGNet(requires_grad=True)
+            self.encoder = e_arch(pretrained_net=vgg_model, n_class=1)
+        elif self.encoder_arch=="UNet":
+            self.encoder = e_arch(3,1)
 
     def init_obstacles_maps(self, maps):
         obstacle_maps = (
@@ -50,14 +57,10 @@ class iastar(nn.Module):
 
     def encode(self, maps, start_maps, goal_maps):
         inputs = maps
-        if "+" in self.encoder_input:
-            if maps.shape[-1] == start_maps.shape[-1]:
-                inputs = torch.cat((inputs, start_maps + goal_maps), dim=1)
-            else:
-                upsampler = nn.UpsamplingNearest2d(maps.shape[-2:])
-                inputs = torch.cat(
-                    (inputs, upsampler(start_maps + goal_maps)),
-                    dim=1)
+        if self.encoder_input==3:
+            inputs = torch.cat((inputs, start_maps, goal_maps), dim=1)
+        elif self.encoder_input==2:
+            inputs = torch.cat((inputs, start_maps + goal_maps), dim=1)
         cost_maps = self.encoder(inputs)
         return cost_maps
 

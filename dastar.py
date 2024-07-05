@@ -651,13 +651,6 @@ class dastar(nn.Module):
                 goal_maps:torch.tensor,
                 obstacles_maps:torch.tensor = None
                 ):
-
-        # if self.is_training == True:
-        #     cost_maps = self.cost_maps[:, 0]
-        #     start_maps = self.start_maps[:, 0]
-        #     goal_maps = self.goal_maps[:, 0]
-        #     obstacles_maps = self.obstacles_maps[:, 0] if self.obstacles_maps!=None else cost_maps
-        # else:
         cost_maps = cost_maps[:, 0]
         start_maps = start_maps[:, 0]
         goal_maps = goal_maps[:, 0]
@@ -687,7 +680,7 @@ class dastar(nn.Module):
             # 71
             # f = self.g_ratio * g +(1 - self.g_ratio)*h
             # 72 73
-            f = 0.5*g + 0.5*h
+            f = g + h + cost_maps
             f_exp = torch.exp(-1 * f/math.sqrt(size[-2]*size[-1]))
             f_exp = f_exp * open_maps
             node_selection = _st_softmax_noexp(f_exp)
@@ -734,9 +727,9 @@ class dastar(nn.Module):
                         "paths": path_maps.unsqueeze(1).detach(),
                     }
                 )
-            if t == Tmax - 1:
-                print("Fail to find paths!!!")
-                return -1
+            # if t == Tmax - 1:
+            #     print("Fail to find paths!!!")
+            #     return -1
     
 
         return AstarOutput(
