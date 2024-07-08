@@ -20,9 +20,9 @@ def load_from_ptl_checkpoint(checkpoint_path: str) -> dict:
     print(f"load {ckpt_file}")
     state_dict = torch.load(ckpt_file)["state_dict"]
     state_dict_extracted = dict()
-    for key in state_dict:
-        if "planner" in key:
-            state_dict_extracted[re.split("planner.", key)[-1]] = state_dict[key]
+    # for key in state_dict:
+    #     if "planner" in key:
+    #         state_dict_extracted[re.split("planner.", key)[-1]] = state_dict[key]
 
     return state_dict_extracted
 

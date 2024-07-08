@@ -667,8 +667,8 @@ class dastar(nn.Module):
         # 72(Diag)
         # h = self.get_heuristic(goal_maps,'Diag')
         # h = cost_maps
-        # g = torch.zeros_like(start_maps)
-        g = cost_maps
+        g = torch.zeros_like(start_maps)
+        # g = cost_maps
         parents = (
             torch.ones_like(start_maps).reshape(self.num_samples, -1)
             * goal_maps.reshape(self.num_samples, -1).max(-1, keepdim=True)[-1]

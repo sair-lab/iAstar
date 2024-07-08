@@ -98,7 +98,7 @@ class EncoderTrainer():
                                                goal.to(self.device))
                 a_loss, l_loss = self.getLoss(maps, planner_outputs)
                 if self.args.useIL:
-                    loss = self.CostofTraj(maps, planner_outputs)/self.args.map_num
+                    loss = self.CostofTraj(maps, planner_outputs)
                 else:
                     loss = nn.L1Loss()(planner_outputs.histories.to(self.device), 
                                        opt_trajs.to(self.device))
@@ -107,20 +107,20 @@ class EncoderTrainer():
                 train_loss = loss.item()
                 loss_sum += train_loss
                 wandb.log({"Running Loss": train_loss, 
-                           "Search Area":a_loss/self.args.map_num, 
-                           "Path Length":l_loss/self.args.map_num,
-                           "Search Area + Path Length": (a_loss+l_loss)/self.args.map_num})
+                           "Search Area":a_loss, 
+                           "Path Length":l_loss,
+                           "Search Area + Path Length": (a_loss+l_loss)})
             self.evaluate()
         loss_sum = loss_sum/len(self.train_env_list)/5  
         return loss_sum
 
     def CostofTraj(self, maps, outputs,alpha=0.75, beta=0.25):
         paths = outputs.paths
-        area_loss = torch.sum(outputs.histories - outputs.paths)
+        area_loss = torch.sum(outputs.histories - outputs.paths)/self.args.map_num
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)
+        length_loss = torch.sum(path_length*paths)/(2*self.args.map_num)
         return torch.sqrt(area_loss) + length_loss
     
     def getLoss(self, maps, outputs):
@@ -134,11 +134,11 @@ class EncoderTrainer():
         # length_loss = F.l1_loss(path_length*paths,
         #               torch.zeros(maps.shape,
         #                           device=self.device))
-        area_loss = torch.sum(outputs.histories - outputs.paths)
+        area_loss = torch.sum(outputs.histories - outputs.paths)/self.args.map_num
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/2
+        length_loss = torch.sum(path_length*paths)/self.args.map_num
         return torch.sqrt(area_loss), length_loss
     
     def prepare_planner(self):
@@ -196,7 +196,11 @@ class EncoderTrainer():
                     os.makedirs(save_model_dir)
                 save_model_name = os.path.join(save_model_dir, 'iaster1'+self.args.encoder_arch + '.pkl')
                 print("model saved at :", save_model_name)
-                torch.save((self.planner, val_loss), save_model_name)
+                torch.save({"epoch":epoch, 
+                            "model_state_dict": self.planner.encoder.state_dict(),
+                            "optimizer_state_dict":self.optimizer.state_dict(),
+                            "train_loss":train_loss,
+                            "val_loss":val_loss}, save_model_name)
                 self.best_loss = val_loss
                 self.log_message("Current val loss: %.4f" % self.best_loss)
                 self.log_message("Epoch: %d model saved | Current Min Val Loss: %f" % (epoch, val_loss))
