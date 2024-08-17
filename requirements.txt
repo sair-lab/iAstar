@@ -1,0 +1,14 @@
+einops==0.8.0
+natsort==8.4.0
+numpy==1.23.5
+opencv_python==4.7.0.72
+Pillow==10.4.0
+pypose==0.6.8
+pytorch_lightning==2.0.3
+PyYAML==6.0.1
+rospkg==1.5.0
+skimage==0.0
+torch==2.0.1
+torchvision==0.15.2
+tqdm==4.65.0
+zanj==0.3.1
