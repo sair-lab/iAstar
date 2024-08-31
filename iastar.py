@@ -1,7 +1,6 @@
 import os
 import sys
 import torch
-import rospkg
 import pypose as pp
 
 from dastar import *
@@ -48,6 +47,8 @@ class iastar(nn.Module):
             self.encoder = e_arch(pretrained_net=vgg_model, n_class=1)
         elif self.encoder_arch=="UNet":
             self.encoder = e_arch(3,1)
+        elif self.encoder_arch=="UNetAtt":
+            self.encoder = e_arch(3)
 
     def init_obstacles_maps(self, maps):
         obstacle_maps = (
@@ -56,11 +57,10 @@ class iastar(nn.Module):
         return obstacle_maps
 
     def encode(self, maps, start_maps, goal_maps):
-        inputs = maps
         if self.encoder_input==3:
-            inputs = torch.cat((inputs, start_maps, goal_maps), dim=1)
+            inputs = torch.cat((maps, start_maps, goal_maps), dim=1)
         elif self.encoder_input==2:
-            inputs = torch.cat((inputs, start_maps + goal_maps), dim=1)
+            inputs = torch.cat((maps, start_maps + goal_maps), dim=1)
         cost_maps = self.encoder(inputs)
         return cost_maps
 

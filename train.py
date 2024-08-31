@@ -7,7 +7,7 @@ import yaml
 import random
 import glob
 import argparse
-from iastar import iastar
+from iastar_v2 import iastar
 from os.path import isdir
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,11 +16,13 @@ from datetime import datetime
 from data_loader import *
 from torch.utils.data import Dataset, DataLoader
 from torchutil import EarlyStopScheduler
+
+root_folder = "/home/cxy/"
 class EncoderTrainer():
 
     def __init__(self) -> None:
         # self.root_folder = os.getenv('EXPERIMENT_DIRECTORY', os.getcwd())
-        self.root_folder = "/home/cxy/SAIRLAB/"
+        self.root_folder = root_folder
         self.load_config()
         self.parse_args()
         self.init_wandb()
@@ -70,8 +72,8 @@ class EncoderTrainer():
         parser.add_argument("--w-decay", type=float, default=self.config['params'].get('w_decay'), help="weight decay of the optimizer")
         parser.add_argument("--factor", type=float, default=self.config['params'].get('factor'), help="ReduceLROnPlateau factor")
         parser.add_argument("--map-num", type=int, default=self.config['params'].get('map_num'), help="num of maps")
-        parser.add_argument("--useIL", type=bool, default=False)
-        parser.add_argument("--w", type=float, default=2.0)
+        parser.add_argument("--useIL", type=bool, default=True)
+        parser.add_argument("--w", type=float, default=1.0)
         # logConfig
         parser.add_argument("--log-save", type=str, default=os.path.join(self.root_folder, 'iAstar', self.config['logpath']), help="train log file")
         self.args = parser.parse_args()
@@ -89,6 +91,7 @@ class EncoderTrainer():
     def train_epoch(self, epoch):
         loss_sum = 0.0
         for env in self.train_env_list:
+            print(env)
             self.dataloader = create_dataloader(env, "train", self.args.map_num)
             for i in range(5):
                 maps, start, goal, opt_trajs = next(iter(self.dataloader))
@@ -96,9 +99,9 @@ class EncoderTrainer():
                 planner_outputs = self.planner(maps.to(self.device), 
                                                start.to(self.device), 
                                                goal.to(self.device))
-                a_loss, l_loss = self.getLoss(maps, planner_outputs)
+                a_loss, l_loss = self.getLoss(planner_outputs)
                 if self.args.useIL:
-                    loss = self.CostofTraj(maps, planner_outputs)
+                    loss = self.CostofTraj(planner_outputs)
                 else:
                     loss = nn.L1Loss()(planner_outputs.histories.to(self.device), 
                                        opt_trajs.to(self.device))
@@ -114,16 +117,16 @@ class EncoderTrainer():
         loss_sum = loss_sum/len(self.train_env_list)/5  
         return loss_sum
 
-    def CostofTraj(self, maps, outputs,alpha=0.75, beta=0.25):
+    def CostofTraj(self, outputs):
         paths = outputs.paths
-        area_loss = torch.sum(outputs.histories - outputs.paths)/maps.shape[0]
+        area_loss = torch.sum(outputs.histories - paths)/paths.shape[0]
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/(2*maps.shape[0])
+        length_loss = torch.sum(path_length*paths)/2/paths.shape[0]
         return torch.sqrt(area_loss) + length_loss
     
-    def getLoss(self, maps, outputs):
+    def getLoss(self, outputs):
         paths = outputs.paths
         # area_loss = F.l1_loss(outputs.histories,
         #                            torch.zeros(outputs.histories.shape,
@@ -134,11 +137,11 @@ class EncoderTrainer():
         # length_loss = F.l1_loss(path_length*paths,
         #               torch.zeros(maps.shape,
         #                           device=self.device))
-        area_loss = torch.sum(outputs.histories - outputs.paths)/maps.shape[0]
+        area_loss = torch.sum(outputs.histories - paths)/paths.shape[0]
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/maps.shape[0]
+        length_loss = torch.sum(path_length*paths)/2/paths.shape[0]
         return torch.sqrt(area_loss), length_loss
     
     def prepare_planner(self):
@@ -166,7 +169,6 @@ class EncoderTrainer():
         #     print("Resume training from best loss: {}".format(self.best_loss))
         # else:
         self.best_loss = float('Inf')
-
         self.optimizer = optim.AdamW(self.planner.parameters(), 
                                      lr=self.args.lr, 
                                      weight_decay=self.args.w_decay)
@@ -217,17 +219,17 @@ class EncoderTrainer():
         t_loss = 0
         with torch.no_grad():
             for env in self.val_env_list:
-                self.val_dataloader = create_dataloader(env, "train", 8)
+                self.val_dataloader = create_dataloader(env, "valid", 8)
                 maps, start, goal, opt_trajs = next(iter(self.val_dataloader))
                 planner_outputs = self.planner(maps.to(self.device), 
                                             start.to(self.device),
                                             goal.to(self.device))
                 if self.args.useIL:
-                    loss = self.CostofTraj(maps, planner_outputs)
+                    loss = self.CostofTraj(planner_outputs)
                 else:
                     loss = F.l1_loss(planner_outputs.histories.to(self.device), 
                                     opt_trajs.to(self.device))
-                a_loss, l_loss = self.getLoss(maps, planner_outputs)
+                a_loss, l_loss = self.getLoss(planner_outputs)
                 t_loss += loss.item()
                 area_l += a_loss.item()
                 length_l += l_loss.item()
@@ -236,11 +238,6 @@ class EncoderTrainer():
                     "Val Path Length": length_l/len(self.val_env_list),
                     "Val Search Area + Path Length": (area_l+length_l)/len(self.val_env_list)})
         return t_loss/len(self.val_env_list)
-
-    def cal_loss(self):
-        loss = 0.0
-        return loss
-    
     def log_message(self, message):
         with open(self.args.log_save, 'a') as f:
             f.writelines(message)
