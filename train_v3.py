@@ -7,7 +7,7 @@ import yaml
 import random
 import glob
 import argparse
-from iastar_v2 import iastar
+from iastar_v3 import iastar
 from os.path import isdir
 import torch.nn as nn
 import torch.nn.functional as F
@@ -208,6 +208,17 @@ class EncoderTrainer():
                 self.log_message("Epoch: %d model saved | Current Min Val Loss: %f" % (epoch, val_loss))
             self.log_message("------------------------------------------------------------------------")
             if self.scheduler.step(val_loss):
+                self.log_message("Save model of epoch %d" % epoch)
+                save_model_dir = '{}/{}/{}'.format(self.args.model_save, date_time_str, epoch)
+                if not isdir(save_model_dir):
+                    os.makedirs(save_model_dir)
+                save_model_name = os.path.join(save_model_dir, 'iaster1'+self.args.encoder_arch + '.pkl')
+                print("model saved at :", save_model_name)
+                torch.save({"epoch":epoch, 
+                            "model_state_dict": self.planner.encoder.state_dict(),
+                            "optimizer_state_dict":self.optimizer.state_dict(),
+                            "train_loss":train_loss,
+                            "val_loss":val_loss}, save_model_name)
                 self.log_message('Early Stopping!')
                 break
         # Close wandb run at the end of training

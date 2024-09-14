@@ -173,8 +173,8 @@ class UNet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         logits = self.outc(x)
-        
-        return self.tan(logits)+1.0
+        # return logits
+        return self.sig(logits)*max(x.shape[-2:])/2
 
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)
@@ -518,7 +518,8 @@ class UNetAtt(nn.Module):
         x = self.up4(x, x1)
         x = self.att1(x)
         logits = self.outc(x)
-        return self.sig(logits)
+        # return logits
+        return self.sig(logits)*max(x.shape[-2:])/2
 
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)
