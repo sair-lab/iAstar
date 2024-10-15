@@ -1,0 +1,15 @@
+dataset: "/home/cxy/iastar/iastar_planner/iastar_planner-main/planning-datasets/maze/maze_064_moore_c16"
+resultdir: "gif"
+planner: "na"   # either na or va
+Tmax: 0.25
+encoder:
+  input: "m+"
+  arch: "CNN"
+  depth: 4
+
+problem_id: 4
+
+
+hydra:
+  job:
+    chdir: False

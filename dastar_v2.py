@@ -216,16 +216,20 @@ class dastar(nn.Module):
             parents = new_parents * idx + parents * (1 - idx)
             if torch.all(is_unsolved.flatten()==0):
                 break
-        
-        
+            
+            
+            if self.store_intermediate_results:
+                path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
+                intermediate_results.append(
+                    {
+                        "histories": histories.unsqueeze(1).detach(),
+                        "paths": path_maps.unsqueeze(1).detach(),
+                    }
+                )
+                
         path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
-        if self.store_intermediate_results:
-            intermediate_results.append(
-                {
-                    "histories": histories.unsqueeze(1).detach(),
-                    "paths": path_maps.unsqueeze(1).detach(),
-                }
-            )
+        
+
             # if t == Tmax - 1:
             #     print("Fail to find paths!!!")
             #     return -1
