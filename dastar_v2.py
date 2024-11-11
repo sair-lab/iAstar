@@ -171,7 +171,7 @@ class dastar(nn.Module):
             * goal_maps.reshape(self.num_samples, -1).max(-1, keepdim=True)[-1]
         )
         size = start_maps.shape
-        Tmax = self.Tmax if self.training else 1.0
+        Tmax = self.Tmax if self.training else 2.0
         Tmax = int(size[-2]*size[-1]*Tmax)
         for t in range(Tmax):
             # 71
@@ -183,6 +183,8 @@ class dastar(nn.Module):
             node_selection = _st_softmax_noexp(f_exp)
             dist_to_goal = (node_selection*goal_maps).sum((1, 2), 
                                                           keepdim=True)
+            print("dist_to_goal", 
+                  dist_to_goal)
             is_unsolved = (dist_to_goal < 1e-8).float()
 
             histories = histories + node_selection
@@ -215,6 +217,8 @@ class dastar(nn.Module):
             new_parents = snm.max(-1, keepdim=True)[1]
             parents = new_parents * idx + parents * (1 - idx)
             if torch.all(is_unsolved.flatten()==0):
+                print(is_unsolved)
+                print("solved!!!!!!!!!!!!!!!!!")
                 break
             
             
@@ -267,7 +271,7 @@ class dastar(nn.Module):
         start_maps = start_maps.type(torch.long)
         path_maps = goal_maps.type(torch.long)
         num_samples = len(parents)
-        loc = (parents * goal_maps.view(num_samples, -1)).sum(-1)
+        loc = (parents * goal_maps.reshape(num_samples, -1)).sum(-1)
         map_shape = start_maps.shape
 
         if self.output_path_list:

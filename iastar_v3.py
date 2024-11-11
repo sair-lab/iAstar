@@ -3,7 +3,7 @@ import sys
 import torch
 import pypose as pp
 
-from dastar_v2 import *
+from dastar_v3 import *
 import encoder
 from encoder import VGGNet
 class iastar(nn.Module):

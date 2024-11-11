@@ -262,7 +262,7 @@ class dastar(nn.Module):
         start_maps = start_maps.type(torch.long)
         path_maps = goal_maps.type(torch.long)
         num_samples = len(parents)
-        loc = (parents * goal_maps.view(num_samples, -1)).sum(-1)
+        loc = (parents * goal_maps.reshape(num_samples, -1)).sum(-1)
         map_shape = start_maps.shape
 
         if self.output_path_list:
@@ -271,7 +271,7 @@ class dastar(nn.Module):
             path_list.append([row, col])
         # if self.output_path_list:
         for _ in range(current_t):
-            path_maps.view(num_samples, -1)[range(num_samples), loc] = 1
+            path_maps.reshape(num_samples, -1)[range(num_samples), loc] = 1
             loc = parents[range(num_samples), loc]
             if self.output_path_list:
                 row = loc//map_shape[-1]

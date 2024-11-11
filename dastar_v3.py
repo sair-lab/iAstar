@@ -167,12 +167,13 @@ class dastar(nn.Module):
         g = torch.zeros_like(start_maps)
         parents = (
             torch.ones_like(start_maps,
-                            device=self.device).reshape(self.num_samples, -1)
+                            device=self.device).view(self.num_samples, -1)
             * goal_maps.reshape(self.num_samples, -1).max(-1, keepdim=True)[-1]
         )
         size = start_maps.shape
         Tmax = self.Tmax if self.training else 1.0
         Tmax = int(size[-2]*size[-1]*Tmax)
+        print(Tmax)
         for t in range(Tmax):
             # 71
             # f = self.g_ratio * g +(1 - self.g_ratio)*h
@@ -218,17 +219,17 @@ class dastar(nn.Module):
                 break
         
         
-        path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
-        if self.store_intermediate_results:
-            intermediate_results.append(
-                {
-                    "histories": histories.unsqueeze(1).detach(),
-                    "paths": path_maps.unsqueeze(1).detach(),
-                }
-            )
-            # if t == Tmax - 1:
-            #     print("Fail to find paths!!!")
-            #     return -1
+            path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
+            if self.store_intermediate_results:
+                intermediate_results.append(
+                    {
+                        "histories": histories.unsqueeze(1).detach(),
+                        "paths": path_maps.unsqueeze(1).detach(),
+                    }
+                )
+                # if t == Tmax - 1:
+                #     print("Fail to find paths!!!")
+                #     return -1
     
 
         return AstarOutput(
@@ -263,7 +264,7 @@ class dastar(nn.Module):
         start_maps = start_maps.type(torch.long)
         path_maps = goal_maps.type(torch.long)
         num_samples = len(parents)
-        loc = (parents * goal_maps.view(num_samples, -1)).sum(-1)
+        loc = (parents * goal_maps.reshape(num_samples, -1)).sum(-1)
         map_shape = start_maps.shape
 
         if self.output_path_list:
@@ -272,7 +273,7 @@ class dastar(nn.Module):
             path_list.append([row, col])
         # if self.output_path_list:
         for _ in range(current_t):
-            path_maps.view(num_samples, -1)[range(num_samples), loc] = 1
+            path_maps.reshape(num_samples, -1)[range(num_samples), loc] = 1
             loc = parents[range(num_samples), loc]
             if self.output_path_list:
                 row = loc//map_shape[-1]
