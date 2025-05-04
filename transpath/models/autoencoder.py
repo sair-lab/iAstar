@@ -3,10 +3,10 @@ import wandb
 from torch import nn
 import pytorch_lightning as pl
 
-from modules.encoder import Encoder
-from modules.decoder import Decoder
-from modules.attention import SpatialTransformer
-from modules.pos_emb import PosEmbeds
+from transpath.modules.encoder import Encoder
+from transpath.modules.decoder import Decoder
+from transpath.modules.attention import SpatialTransformer
+from transpath.modules.pos_emb import PosEmbeds
 
 
 def base_loss(criterion, na_outputs, va_outputs):
@@ -64,7 +64,7 @@ class Autoencoder(pl.LightningModule):
         
         self.recon_criterion = nn.L1Loss() if mode == 'h' else nn.MSELoss()
         self.mode = mode
-        self.k = 64*64 if mode == 'h' else 1
+        self.k = 32*32 if mode == 'h' else 1
         
         self.automatic_optimization = False
         self.save_hyperparameters()

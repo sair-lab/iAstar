@@ -22,7 +22,9 @@ class PosEmbeds(nn.Module):
         super().__init__()
         self.linear = nn.Linear(4, hidden_size)
         self.grid = nn.Parameter(torch.Tensor(build_grid(resolution)), requires_grad=False)
-        
+        print(self.grid.shape)
+        self.change_resolution(resolution, max_v=2.0)
+        print(self.grid.shape)
     def forward(self, inputs):
         pos_emb = self.linear(self.grid).moveaxis(3, 1)
         return inputs + pos_emb

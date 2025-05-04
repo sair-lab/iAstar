@@ -20,7 +20,7 @@ import numpy as np
 import re
 import sys
 sys.path.append('./transpath/')
-def load_from_ptl_checkpoint(checkpoint_path: str, device='cuda:2') -> dict:
+def load_from_ptl_checkpoint(checkpoint_path: str, device='cuda:0') -> dict:
     """
     Load model weights from PyTorch Lightning checkpoint.
 
@@ -124,34 +124,45 @@ def save_results(results:dict, filename = "results.xls"):
     myEx.save(filename)
 
 device = "cuda:1" if torch.cuda.is_available() else "cpu"
-neural_astar = NeuralAstar(encoder_arch='CNN').to(device)
-neural_astar.load_state_dict(load_from_ptl_checkpoint("/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/model/mazes_032_moore_c8/lightning_logs/version_0/",
-                                                      device=device))
-# ia_star = iastar(encoder_arch='CNN',
-#                 is_training=False,
-#                 output_path_list=False).to(device)
-# ia_star.load_state_dict(load_from_ptl_checkpoint("/home/cxy/iastar/iastar_planner/iastar_planner-main/scripts/iastar/model/mazes_032_moore_c8/lightning_logs/version_74/"))
-ia_star = torch.load("./model/04-07-2024-18-10-33/24/iaster1CNN.pkl")[0]
-vanilla_astar = dastar(device=device)
+print("device is", device)
+with torch.no_grad():
+    neural_astar = NeuralAstar(encoder_arch='CNN').to(device)
+    neural_astar.load_state_dict(load_from_ptl_checkpoint("/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/model/mazes_032_moore_c8/lightning_logs/version_0/",
+                                                        device=device))
+    # ia_star = iastar(encoder_arch='CNN',
+    #                 is_training=False,
+    #                 output_path_list=False).to(device)
+    # ia_star.load_state_dict(load_from_ptl_checkpoint("/home/cxy/iastar/iastar_planner/iastar_planner-main/scripts/iastar/model/mazes_032_moore_c8/lightning_logs/version_74/"))
 
-iastarS = VanillaAstar().to(device)
-# iastarS.load_state_dict(load_from_ptl_checkpoint("/home/cxy/iastar/iastar_planner/iastar_planner-main/scripts/iastar/model/mazes_032_moore_c8/supervised/lightning_logs/version_1"))
+    ia_star = iastar(encoder_input=3,
+                    encoder_arch="UNetAtt",
+                    device=device,
+                    encoder_depth=4,
+                    learn_obstacles=False,
+                    is_training = False,
+                    output_path_list= False,
+                    w=2.0).to(device)
+    ia_star.encoder.load_state_dict(torch.load("/home/cxy/iAstar/model/18-08-2024-21-55-24/26/iaster1UNetAtt.pkl")["model_state_dict"])
+    vanilla_astar = dastar(device=device)
+
+    iastarS = VanillaAstar().to(device)
+    # iastarS.load_state_dict(load_from_ptl_checkpoint("/home/cxy/iastar/iastar_planner/iastar_planner-main/scripts/iastar/model/mazes_032_moore_c8/supervised/lightning_logs/version_1"))
 
 
-from transpath.models.autoencoder import Autoencoder
-from transpath.modules.planners import DifferentiableDiagAstar
-from data_loader import create_dataloader
-cf_planner = DifferentiableDiagAstar(mode='k').to(device)
-w2_planner = DifferentiableDiagAstar(mode='default', h_w=2).to(device)
-model_focal = Autoencoder(mode='f').to(device)
-model_focal.load_state_dict(torch.load('/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/scripts/TransPath/weights/focal.pth'))
-model_cf = Autoencoder(mode='k').to(device)
-model_cf.load_state_dict(torch.load('/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/scripts/TransPath/weights/cf.pth'))
-fw100_planner = DifferentiableDiagAstar(mode='f', f_w=100).to(device)
+    from transpath.models.autoencoder import Autoencoder
+    from transpath.modules.planners import DifferentiableDiagAstar
+    from data_loader import create_dataloader
+    cf_planner = DifferentiableDiagAstar(mode='k').to(device)
+    w2_planner = DifferentiableDiagAstar(mode='default', h_w=2).to(device)
+    model_focal = Autoencoder(mode='f').to(device)
+    model_focal.load_state_dict(torch.load('/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/scripts/TransPath/weights/focal.pth'))
+    model_cf = Autoencoder(mode='k').to(device)
+    model_cf.load_state_dict(torch.load('/Dpan/cxy1/iastar/iastar_planner/iastar_planner-main/scripts/TransPath/weights/cf.pth'))
+    fw100_planner = DifferentiableDiagAstar(mode='f', f_w=100).to(device)
 
-from neural_astar.utils.data import visualize_results
+    from neural_astar.utils.data import visualize_results
 
-import time
+    import time
 
 def visualize(na_outputs, ia_outputs, va_outputs, map_designs, device):
     
@@ -176,7 +187,7 @@ def visualize(na_outputs, ia_outputs, va_outputs, map_designs, device):
     axes[4].set_title("iA*")
     axes[4].axis("off")
 
-n = 2
+n = 15
 t_na = np.zeros(n)
 t_ia = np.zeros(n)
 t_va = np.zeros(n)
@@ -220,7 +231,7 @@ lens_cf = np.zeros(n)
 
 # for kk in range(10,20,1):
 
-env_list = ['matterport', "maze", "mpd"]
+env_list = ["matterport"]
 map_num = 5
 with torch.no_grad():
     for env in env_list:
@@ -382,11 +393,15 @@ with torch.no_grad():
             excelname = ''.join(tmpnames)
             result_dict[excelname] = [opts, exps, times,lengths]
 
-save_results(result_dict, "74result_mul_1114_MDP_Euc20.xls")
+    save_results(result_dict, "mm.xls")
 
 print("Time(NA):", t_na.mean())
 print("Time(IA):", t_ia.mean())
 print("Time(VA):", t_va.mean())
-print("Search area of NA is ", num_na.mean())
-print("Search area of IA is ", num_ia.mean())
-print("Search area of VA is ", num_va.mean())
+print("Search area of NA is ", exp_na.mean())
+print("Search area of IA is ", exp_ia.mean())
+print("Search area of CF is ", exp_cf.mean())
+print("Search area of NA is ", torch.sqrt((1-exp_na.mean())*64*64)+np.mean(lens_na))
+print("Search area of IA is ",  torch.sqrt((1 - exp_ia.mean())*64*64)+np.mean(lens_ia))
+print("Search area of CF is ",  torch.sqrt((1-exp_cf.mean())*64*64)+np.mean(lens_cf))
+

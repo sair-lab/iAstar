@@ -660,17 +660,19 @@ class dastar(nn.Module):
         ns = torch.repeat_interleave(self.n_s, self.num_samples, 0)
 
         open_maps = start_maps
-        histories = torch.zeros_like(start_maps)
+        histories = torch.zeros_like(start_maps,
+                                     device=self.device)
         intermediate_results = []
         # # 71(Diag) 73(Diag) 74(Euc)
         h = self.get_heuristic(goal_maps,'Euc')*self.w 
         # 72(Diag)
         # h = self.get_heuristic(goal_maps,'Diag')
         # h = cost_maps
-        g = torch.zeros_like(start_maps)
+        g = torch.zeros_like(start_maps, requires_grad=True)
         # g = cost_maps
         parents = (
-            torch.ones_like(start_maps).reshape(self.num_samples, -1)
+            torch.ones_like(start_maps,
+                            device=self.device).reshape(self.num_samples, -1)
             * goal_maps.reshape(self.num_samples, -1).max(-1, keepdim=True)[-1]
         )
         size = start_maps.shape
@@ -719,14 +721,16 @@ class dastar(nn.Module):
             parents = new_parents * idx + parents * (1 - idx)
             if torch.all(is_unsolved.flatten()==0):
                 break
-            path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
-            if self.store_intermediate_results:
-                intermediate_results.append(
-                    {
-                        "histories": histories.unsqueeze(1).detach(),
-                        "paths": path_maps.unsqueeze(1).detach(),
-                    }
-                )
+        
+        
+        path_maps, path_list = self.backtrack(start_maps, goal_maps, parents, t)
+        if self.store_intermediate_results:
+            intermediate_results.append(
+                {
+                    "histories": histories.unsqueeze(1).detach(),
+                    "paths": path_maps.unsqueeze(1).detach(),
+                }
+            )
             # if t == Tmax - 1:
             #     print("Fail to find paths!!!")
             #     return -1
@@ -771,6 +775,7 @@ class dastar(nn.Module):
             row = loc//map_shape[-1]
             col = loc%map_shape[-1]
             path_list.append([row, col])
+        # if self.output_path_list:
         for _ in range(current_t):
             path_maps.view(num_samples, -1)[range(num_samples), loc] = 1
             loc = parents[range(num_samples), loc]

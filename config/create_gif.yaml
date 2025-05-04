@@ -1,4 +1,4 @@
-dataset: "/home/cxy/iastar/iastar_planner/iastar_planner-main/planning-datasets/maze/maze_064_moore_c12"
+dataset: "/home/cxy/iAstar/planning-datasets/matterport/instances/064/tsdf_064_moore_c25"
 resultdir: "gif"
 planner: "na"   # either na or va
 Tmax: 0.25

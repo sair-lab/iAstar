@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from einops import rearrange, repeat
 import sys
 sys.path.append("..")
-from util.checkpoint import checkpoint
+from transpath.util.checkpoint import checkpoint
 
 
 def default(val, d):

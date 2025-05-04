@@ -48,6 +48,8 @@ class iastar(nn.Module):
             self.encoder = e_arch(pretrained_net=vgg_model, n_class=1)
         elif self.encoder_arch=="UNet":
             self.encoder = e_arch(3,1)
+        elif self.encoder_arch == "UNetAtt":
+            self.encoder = e_arch(3)
 
     def init_obstacles_maps(self, maps):
         obstacle_maps = (

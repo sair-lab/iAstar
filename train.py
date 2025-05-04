@@ -40,7 +40,7 @@ class EncoderTrainer():
             # set the wandb project where this run will be logged
             project="imperative-path-planning",
             # Set the run name to current date and time
-            name=date_time_str + n + "adamW",
+            name=date_time_str + n + "adamWUP",
             config={
                 "learning_rate": self.args.lr,
                 "architecture": "PlannerNet",  # Replace with your actual architecture
@@ -116,11 +116,11 @@ class EncoderTrainer():
 
     def CostofTraj(self, maps, outputs,alpha=0.75, beta=0.25):
         paths = outputs.paths
-        area_loss = torch.sum(outputs.histories - outputs.paths)/self.args.map_num
+        area_loss = torch.sum(outputs.histories - outputs.paths)/maps.shape[0]
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/(2*self.args.map_num)
+        length_loss = torch.sum(path_length*paths)/(2*maps.shape[0])
         return torch.sqrt(area_loss) + length_loss
     
     def getLoss(self, maps, outputs):
@@ -134,11 +134,11 @@ class EncoderTrainer():
         # length_loss = F.l1_loss(path_length*paths,
         #               torch.zeros(maps.shape,
         #                           device=self.device))
-        area_loss = torch.sum(outputs.histories - outputs.paths)/self.args.map_num
+        area_loss = torch.sum(outputs.histories - outputs.paths)/maps.shape[0]
         pad = nn.ReplicationPad2d(padding=(1,1,1,1))
         pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
         path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/self.args.map_num
+        length_loss = torch.sum(path_length*paths)/maps.shape[0]
         return torch.sqrt(area_loss), length_loss
     
     def prepare_planner(self):
