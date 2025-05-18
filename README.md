@@ -18,7 +18,7 @@
 
 
 <p align="middle">
-  <img src="figures/firstpage.jpg" width="400" />
+  <img src="figures/firstpage.jpg" width="600" />
 </p>
 
 **Abstract:**     Path planning, which aims to find a collision-free path between two locations, is critical for numerous applications ranging from mobile robots to self-driving vehicles.
@@ -29,10 +29,8 @@
     Extensive experiments demonstrate that iA$^*$ outperforms both classical and supervised learning-based methods, achieving an average reduction of 9.6\% in search area and 15.2\% in runtime, underscoring its effectiveness in robot path planning tasks.
 
 <p align="middle">
-  <img src="figures/framework.jpg" width="400" />
+  <img src="figures/framework.jpg" width="600" />
 </p>
-
-
 
 ## Installation
 ### Dependencies
@@ -84,10 +82,10 @@ The well-trained models can be downloaded from [Google Drive](https://drive.goog
 After downloading, place the model file into the folder *model/iastar* for test.
 
 <div style="display: flex; justify-content: center; gap: 10px;">
-  <img src="figures/gif/example1.gif" width="100"/>
-  <img src="figures/gif/example2.gif"width="100"/>
-  <img src="figures/gif/example3.gif" width="100"/>
-  <img src="figures/gif/example4.gif" width="100"/>
+  <img src="figures/gif/example1.gif" width="200"/>
+  <img src="figures/gif/example2.gif"width="200"/>
+  <img src="figures/gif/example3.gif" width="200"/>
+  <img src="figures/gif/example4.gif" width="200"/>
 </div>
 
 ## Training
