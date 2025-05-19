@@ -38,7 +38,7 @@ class EncoderTrainer():
         # Initialize wandb
         self.wandb_run = wandb.init(
             # set the wandb project where this run will be logged
-            project="imperative-path-planning",
+            project="iAstar",
             # Set the run name to current date and time
             name=date_time_str + n + "adamWUP",
             config={
