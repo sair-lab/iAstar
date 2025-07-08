@@ -51,7 +51,7 @@ To run iA*, you need to install PyTorch. We recommend using Anaconda for install
 ### Step 3: Install dependencies from requirements.txt using pip
 <pre> pip install -r requirements.txt </pre>
 ## Dataset
-The dataset used in this paper can be found at [Google Drive](https://drive.google.com/drive/folders/12OTiSL7i-rWdLnkvGHwJZrZAjMdvrpDC?usp=sharing), as planning-dataset.zip.
+The dataset used in this paper can be found at [Google Drive](https://drive.google.com/file/d/10LG7wf6UrG-8_fzAipzbBeSxg5W766uF/view?usp=sharing), as planning-dataset.zip.
 
 After downloading, place the dataset into the folder and unzip it.
 <pre>
