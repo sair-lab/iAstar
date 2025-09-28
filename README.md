@@ -101,19 +101,18 @@ python train.py
 If you utilize this codebase in your research, we kindly request you to reference our work. You can cite us as follows:
 - iA*: Imperative Learning-based A* Search for Pathfinding.
 Xiangyu Chen, Fan Yang, Chen Wang.
-arXiv preprint arXiv:2403.15870, 2025.
+IEEE Robotics and Automation Letters (RA-L), 2025.
 
 The BiBTeX entry for LaTeX users is:
 <pre>
 @article{chen2025iastar,
-  title = {{iA*}: Imperative Learning-based A* Search for Pathfinding},
+  title = {{iA*}: Imperative Learning-based A* Search for Path Planning},
   author = {Chen, Xiangyu and Yang, Fan and Wang, Chen},
-  journal = {arXiv preprint arXiv:2403.15870},
+  journal = {IEEE Robotics and Automation Letters (RA-L)},
   year = {2025},
   url = {https://arxiv.org/abs/2403.15870},
   code = {https://github.com/sair-lab/iAstar},
   website = {https://sairlab.org/iastar/},
-  addendum = {SAIR Lab Selected}
 }
 </pre>
 
