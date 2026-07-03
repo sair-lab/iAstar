@@ -549,7 +549,7 @@ class dastar(nn.Module):
                  w:float = 1.0,
                  Tmax:float = 1.0,
                  store_intermediate_results: bool = False,
-                 output_path_list: list = False,
+                 output_path_list: list = True,
                  is_training = False):
         super().__init__()
         self.maps = maps

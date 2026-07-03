@@ -115,9 +115,12 @@ class MazeDataset(data.Dataset):
         opt_policy = self.opt_policies[index]
         opt_dist = self.opt_dists[index]
         start_maps, opt_trajs = [], []
-        for i in range(self.num_starts):
+        while len(start_maps) < self.num_starts:
             start_map = self.get_random_start_map(opt_dist)
             opt_traj = self.get_opt_traj(start_map, goal_map, opt_policy)
+            # if opt_traj == None:
+            #     # print("Waiting for opt traj")
+            #     continue
             start_maps.append(start_map)
             opt_trajs.append(opt_traj)
         start_map = np.concatenate(start_maps)
@@ -150,6 +153,8 @@ class MazeDataset(data.Dataset):
         while goal_loc != current_loc:
             opt_traj[current_loc] = 1.0
             next_loc = self.next_loc(current_loc, opt_policy[current_loc])
+            # if opt_traj[next_loc] == 0.0:
+            #     return None
             assert (
                 opt_traj[next_loc] == 0.0
             ), "Revisiting the same position while following the optimal policy"
