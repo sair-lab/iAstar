@@ -1,8 +1,6 @@
 import os
 import sys
 import torch
-import rospkg
-import pypose as pp
 
 from dastar import *
 import encoder

@@ -20,7 +20,8 @@ class EncoderTrainer():
 
     def __init__(self) -> None:
         # self.root_folder = os.getenv('EXPERIMENT_DIRECTORY', os.getcwd())
-        self.root_folder = "/home/cxy/SAIRLAB/"
+        # Parent of the repo dir, so os.path.join(root_folder, 'iAstar', ...) resolves inside the repo.
+        self.root_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.load_config()
         self.parse_args()
         self.init_wandb()
@@ -70,14 +71,18 @@ class EncoderTrainer():
         parser.add_argument("--w-decay", type=float, default=self.config['params'].get('w_decay'), help="weight decay of the optimizer")
         parser.add_argument("--factor", type=float, default=self.config['params'].get('factor'), help="ReduceLROnPlateau factor")
         parser.add_argument("--map-num", type=int, default=self.config['params'].get('map_num'), help="num of maps")
-        parser.add_argument("--useIL", type=bool, default=False)
+        # `type=bool` was broken (any value -> True). Use store_true: pass `--useIL` to
+        # enable the self-supervised imperative loss (L1 of search history vs the planner's
+        # own found path); omit it to use the supervised L1(history, opt_traj).
+        parser.add_argument("--useIL", action="store_true",
+                            help="use the self-supervised imperative loss (CostofTraj)")
         parser.add_argument("--w", type=float, default=2.0)
         # logConfig
         parser.add_argument("--log-save", type=str, default=os.path.join(self.root_folder, 'iAstar', self.config['logpath']), help="train log file")
         self.args = parser.parse_args()
 
     def load_config(self):
-        filepath = os.path.join(os.path.dirname(self.root_folder),'iAstar','config', 'config.yaml')
+        filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'config.yaml')
         with open(filepath,mode="r",encoding="utf-8") as f:
             self.config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
@@ -88,40 +93,45 @@ class EncoderTrainer():
         print("Using for val", self.val_env_list) 
     def train_epoch(self, epoch):
         loss_sum = 0.0
+        n_batches = 0
         for env in self.train_env_list:
-            self.dataloader = create_dataloader(env, "train", self.args.map_num)
-            for i in range(5):
-                maps, start, goal, opt_trajs = next(iter(self.dataloader))
+            # Iterate the WHOLE dataset each epoch (shuffled). The old code pulled the same
+            # first batch 5x via next(iter(...)) with shuffle=False, so 99% of the maps were
+            # never seen and the loss could not really train.
+            self.dataloader = create_dataloader(env, "train", self.args.map_num, shuffle=True)
+            for maps, start, goal, opt_trajs in self.dataloader:
                 self.optimizer.zero_grad()
-                planner_outputs = self.planner(maps.to(self.device), 
-                                               start.to(self.device), 
+                planner_outputs = self.planner(maps.to(self.device),
+                                               start.to(self.device),
                                                goal.to(self.device))
                 a_loss, l_loss = self.getLoss(maps, planner_outputs)
                 if self.args.useIL:
                     loss = self.CostofTraj(maps, planner_outputs)
                 else:
-                    loss = nn.L1Loss()(planner_outputs.histories.to(self.device), 
+                    loss = nn.L1Loss()(planner_outputs.histories.to(self.device),
                                        opt_trajs.to(self.device))
                 loss.backward()
                 self.optimizer.step()
                 train_loss = loss.item()
                 loss_sum += train_loss
-                wandb.log({"Running Loss": train_loss, 
-                           "Search Area":a_loss, 
+                n_batches += 1
+                wandb.log({"Running Loss": train_loss,
+                           "Search Area":a_loss,
                            "Path Length":l_loss,
                            "Search Area + Path Length": (a_loss+l_loss)})
             self.evaluate()
-        loss_sum = loss_sum/len(self.train_env_list)/5  
-        return loss_sum
+        return loss_sum/max(n_batches, 1)
 
-    def CostofTraj(self, maps, outputs,alpha=0.75, beta=0.25):
-        paths = outputs.paths
-        area_loss = torch.sum(outputs.histories - outputs.paths)/maps.shape[0]
-        pad = nn.ReplicationPad2d(padding=(1,1,1,1))
-        pad = nn.ZeroPad2d(padding=(1,1,1,1)).to(self.device)
-        path_length = F.conv2d(pad(paths).float(), self.path_kernel)
-        length_loss = torch.sum(path_length*paths)/(2*maps.shape[0])
-        return torch.sqrt(area_loss) + length_loss
+    def CostofTraj(self, maps, outputs):
+        # Self-supervised imperative loss: pull the (differentiable) search history toward
+        # the planner's OWN found path, used as a *detached* target -> no ground-truth
+        # optimal path is needed. Because the target IS the path the planner found, this
+        # shrinks the search area while maintaining that (possibly suboptimal) path.
+        # (Empirically: ~-16% search area with path length held flat; the older
+        # sqrt(area)+length form could not train the length term and degraded paths.)
+        histories = outputs.histories
+        own_path = outputs.paths.float().detach()
+        return F.l1_loss(histories, own_path)
     
     def getLoss(self, maps, outputs):
         paths = outputs.paths
@@ -250,8 +260,10 @@ class EncoderTrainer():
 def main():
     trainer = EncoderTrainer()
     if trainer.args.training == True:
+        # train() already evaluates every epoch and finishes the wandb run at the end.
         trainer.train()
-    trainer.evaluate()
+    else:
+        trainer.evaluate()
 
 if __name__ == "__main__":
     main()

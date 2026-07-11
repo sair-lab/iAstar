@@ -251,10 +251,24 @@ class EarlyStopScheduler(torch.optim.lr_scheduler.ReduceLROnPlateau):
     def __init__(self, optimizer, mode='min', factor=0.1, patience=10,
                     verbose=False, threshold=1e-4, threshold_mode='rel',
                     cooldown=0, min_lr=0, eps=1e-8):
+        # `verbose` was removed from ReduceLROnPlateau in newer PyTorch; keep it in this
+        # subclass's signature for backward compatibility but don't forward it to the parent.
         super().__init__(optimizer=optimizer, mode=mode, factor=factor, patience=patience,
                             threshold=threshold, threshold_mode=threshold_mode,
-                            cooldown=cooldown, min_lr=min_lr, eps=eps, verbose=verbose)
+                            cooldown=cooldown, min_lr=min_lr, eps=eps)
+        self.verbose = verbose  # newer PyTorch no longer stores this on the parent
         self.no_decrease = 0
+
+    def _better(self, current):
+        # Self-contained replacement for the parent's (now-private) is_better,
+        # supporting the mode/threshold_mode combinations used here.
+        if self.mode == "min":
+            if self.threshold_mode == "rel":
+                return current < self.best * (1.0 - self.threshold)
+            return current < self.best - self.threshold
+        if self.threshold_mode == "rel":
+            return current > self.best * (1.0 + self.threshold)
+        return current > self.best + self.threshold
 
     def step(self, metrics, epoch=None):
         # convert `metrics` to float, in case it's a zero-dim Tensor
@@ -263,7 +277,7 @@ class EarlyStopScheduler(torch.optim.lr_scheduler.ReduceLROnPlateau):
             epoch = self.last_epoch = self.last_epoch + 1
         self.last_epoch = epoch
 
-        if self.is_better(current, self.best):
+        if self._better(current):
             self.best = current
             self.num_bad_epochs = 0
         else:
